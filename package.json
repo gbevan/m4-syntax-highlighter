@@ -1,0 +1,25 @@
+{
+  "name": "m4-syntax-highlighter",
+  "title": "M4 Macro Syntax Highlighter",
+  "description": "Syntax highlighting for M4 Macro files (e.g. Autoconf).",
+  "homepage": "",
+  "keywords": [
+    "m4",
+    "autoconf",
+    "syntax",
+    "highlighting"
+  ],
+  "version": "0.1.0",
+  "author": {
+    "name": "Graham Lee Bevan",
+    "email": "graham.bevan@ntlworld.com",
+    "url": ""
+  },
+  "licenses": [{
+    "type": "Apache 2.0",
+    "url": "http://www.apache.org/licenses/"
+  }],
+  "engines": {
+    "brackets": ">=0.29.0"
+  }
+}
