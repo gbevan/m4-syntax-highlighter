@@ -73,7 +73,7 @@ define(function (require, exports, module) {
 
       // Assignment: variable=value
       if (!state.inVariableAssignment && stream.sol()) {
-        var varMatch = stream.match(/(^\s*)?(\w+)=/);
+        var varMatch = stream.match(/^\s*(\w+)=/);
         if (varMatch) {
           stream.backUp(1);
           state.inVariableAssignment = true;
@@ -98,6 +98,8 @@ define(function (require, exports, module) {
         }
         if (state.macroStack[state.macroStack.length - 1].match('^(AC_SUBST)$')) {
           var ac_subst_var = stream.match(/(\w+)/);
+          console.log('ac_subst_var:', ac_subst_var);
+          console.log('variable:', state.variable);
           if (ac_subst_var && state.variable[ac_subst_var[1]]) {
             return 'm4variable';
           }
