@@ -1,0 +1,11 @@
+
+AS_IF([test "$ac_cv_sizeof_int_p" -eq 8],
+  [
+    AC_DEFINE([OSBIT], 64, [Define to the size of a long in bits.])
+    AC_DEFINE([PTRTYPE], unsigned long, [Define size of pointer])
+  ],
+  [
+    AC_DEFINE([OSBIT], 32, [Define to the size of a long in bits.])
+    AC_DEFINE([PTRTYPE], unsigned int, [Define size of pointer])
+  ]
+)

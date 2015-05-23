@@ -1,7 +1,7 @@
 {
   "name": "m4-syntax-highlighter",
   "title": "M4 Macro Syntax Highlighter",
-  "description": "Syntax highlighting for M4 Macro files (e.g. Autoconf).",
+  "description": "Simple Syntax highlighting for M4 Macro files (e.g. Autoconf). To improve editting of configure.ac files primarily.",
   "homepage": "",
   "keywords": [
     "m4",
@@ -20,6 +20,6 @@
     "url": "http://www.apache.org/licenses/"
   }],
   "engines": {
-    "brackets": ">=0.29.0"
+    "brackets": ">=1.0.0"
   }
 }

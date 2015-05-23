@@ -1,0 +1,12 @@
+AAAA=123
+BBBB=456
+AC([123])
+
+AAAA=123
+AC([123])
+BBBB=456  #this is a comment
+
+insert text script_var=value # shouldn't highlight as assignment
+
+   CCC=123    # shoule be higlighted
+DDD=345

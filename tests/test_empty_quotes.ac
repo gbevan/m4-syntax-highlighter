@@ -1,0 +1,16 @@
+
+variable=" " #should be a comment
+variable=' ' #should be a comment
+variable=[ ] #should be a comment
+
+AC(" ")
+AC(' ')
+AC([ ])
+
+variable="" #should be a comment
+variable='' #should be a comment
+variable=[] #should be a comment
+
+AC("")
+AC('')
+AC([])

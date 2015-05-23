@@ -1,0 +1,879 @@
+AC_INIT(pastmon, 0.17.6, [graham.bevan@ntlworld.com])
+echo "*************************************************************************"
+echo "* Configuring AC_PACKAGE_NAME - AC_PACKAGE_VERSION"
+echo "*************************************************************************"
+dnl AC_CONFIG_AUX_DIR([.], [libltdl/config])
+AC_CONFIG_AUX_DIR([libltdl/config])
+AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
+AC_PREREQ([2.57])
+AM_CONFIG_HEADER(include/config.h)
+AC_PREFIX_DEFAULT(/usr/local/pastmon)
+AC_GNU_SOURCE
+
+# http://dojotoolkit.org/
+DOJOREL=1.10.4  #1.9.3
+DOJOKIT=dojo-release-$DOJOREL.tar.gz
+AC_SUBST(DOJOKIT)
+AC_SUBST(DOJOREL)
+
+CPPFLAGS="$CPPFLAGS -I`pwd`/pastmon -I`pwd`/include"
+
+dnl set dojorootdir
+dojorootdir='${datarootdir}/pastmonphp/dojoroot'
+AC_SUBST(dojorootdir)
+dijitsubdir='${datarootdir}/pastmonphp/dojoroot/dijit'
+AC_SUBST(dijitsubdir)
+dojosubdir='${datarootdir}/pastmonphp/dojoroot/dojo'
+AC_SUBST(dojosubdir)
+dojoxsubdir='${datarootdir}/pastmonphp/dojoroot/dojox'
+AC_SUBST(dojoxsubdir)
+
+AC_MSG_CHECKING([Is there a libltdl/ directory to build])
+if test -d `pwd`/libltdl; then
+dnl  AC_CONFIG_SUBDIRS(libltdl)
+  AC_MSG_RESULT(yes)
+dnl CPPFLAGS="$CPPFLAGS -I`pwd`/libltdl"
+
+else
+  AC_MSG_RESULT(no)
+  AC_MSG_ERROR([No libltdl/ subdirectory found, libtoolize has failed to create])
+fi
+
+dnl workaround for lost top_build_prefix
+top_build_prefix=${ac_top_build_prefix}
+AC_SUBST(top_build_prefix)
+
+m4_pattern_allow([LT_LIBEXT])dnl workaround for LT_LIBEXT
+
+LT_PREREQ(2.2.6)
+AC_CONFIG_MACRO_DIR([libltdl/m4])
+LT_CONFIG_LTDL_DIR([libltdl])
+LT_INIT([dlopen], [disable-static])
+LTDL_INIT([convenience])
+dnl AC_LIBTOOL_DLOPEN
+AC_LIBLTDL_CONVENIENCE
+dnl AC_PROG_LIBTOOL
+AC_SUBST([LIBTOOL_DEPS])
+dnl LDFLAGS="$LDFLAGS -Llibltdl/"
+dnl AC_CONFIG_SUBDIRS(libltdl)
+
+CFLAGS="$CFLAGS $LTDLINCL"
+
+AC_DEFINE(DB_SCHEMA_VERSION,"2.6",[Database schema version])
+
+AC_DEFINE_UNQUOTED(VERSION_TXT,["PasTmon version $VERSION.\n"],[Version text])
+AC_DEFINE_UNQUOTED(PSART,["<<PasTmon-$VERSION>>"],[Process List Label])
+
+if test "$prefix" = "NONE"
+then
+  AC_DEFINE_UNQUOTED(PREFIX,["$ac_default_prefix"],[PREFIX $ac_default_prefix])
+  echo "ac_default_prefix=$ac_default_prefix"
+  PERLLIBDIR="$ac_default_prefix/lib"
+  myprefix="$ac_default_prefix"
+else
+  AC_DEFINE_UNQUOTED(PREFIX,["$prefix"],[PREFIX $prefix])
+  echo "prefix=$prefix"
+  PERLLIBDIR="$prefix/lib"
+  myprefix=$prefix
+fi
+echo "PERLLIBDIR=$PERLLIBDIR"
+AC_SUBST(PERLLIBDIR)
+echo "myprefix=$myprefix"
+AC_SUBST(myprefix)
+
+dnl include server
+AC_MSG_CHECKING([whether I will build server component])
+AC_ARG_ENABLE(server, AS_HELP_STRING([--enable-server], [Build PasTmon server side components]), BUILDSERVER=1, BUILDSERVER=0)
+AM_CONDITIONAL([BUILDSERVER], [test $BUILDSERVER -eq 1])
+dnl AC_SUBST(BUILDSERVER)
+
+dnl build documentation?
+AC_MSG_CHECKING([whether I am to build docs])
+AC_ARG_ENABLE(docs, AS_HELP_STRING([--enable-docs],[Build PasTmon documentation]), BUILDDOCS=1, BUILDDOCS=0)
+AM_CONDITIONAL(BUILDDOCS, test $BUILDDOCS -eq 1 )
+pas_ac_docs=""
+pas_am_docs_1=""
+if test $BUILDDOCS -eq 1
+then
+  AC_MSG_RESULT(yes)
+  pas_am_docs_1="Documentation"
+else
+  AC_MSG_RESULT(no)
+fi
+AC_SUBST(pas_am_docs_1)
+
+dnl defaults
+LDFLAGS="-rdynamic $LDFLAGS"
+#LDFLAGS="-rdynamic $LDFLAGS -L/usr/lib -L/usr/local/lib"
+#LDFLAGS="$LDFLAGS -L/usr/lib -L/usr/local/lib"
+
+dnl option for debugger compiler options
+AC_MSG_CHECKING([whether to enable compiler debugging options])
+AC_ARG_ENABLE(debug, AS_HELP_STRING([--enable-debug], [Enable compiler debugging options]), COMPDEBUG=1, COMPDEBUG=0)
+if test "x$COMPDEBUG" = "x1"
+then
+  AC_MSG_RESULT(yes)
+  CFLAGS=`echo $CFLAGS | sed 's/-g//' | sed 's/-O.//'`  # Clean optimiser options
+  CFLAGS="-g -O0 $CFLAGS"
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl option for generating runtime RTL file for use with Egypt code profiler
+AC_MSG_CHECKING([whether to enable runtime RTL file for code profiler like Egypt])
+AC_ARG_ENABLE(rtl, AS_HELP_STRING([--enable-rtl], [Enable runtime RTL file for code profiler like Egypt]), COMPRTL=1, COMPRTL=0)
+if test "x$COMPRTL" = "x1"
+then
+  AC_MSG_RESULT(yes)
+  CFLAGS="$CFLAGS -fdump-rtl-expand"
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl Identify the host architecture
+dnl AC_CANONICAL_HOST
+THISARCH=`echo $host | sed 's/-.*$//'`
+AC_SUBST(THISARCH)
+AC_C_BIGENDIAN
+REDHAT=0
+FEDORA=0
+GENTOO=0
+UBUNTU=0
+case "$host" in
+  *-openbsd2.6|*-openbsd2.5|*-openbsd2.4|*-openbsd2.3*)
+    AC_DEFINE(OPENBSD,,[OpenBSD])
+dnl    AC_DEFINE(BROKEN_SIOCGIFMTU)
+    ;;
+  *-openbsd*)
+    AC_DEFINE(OPENBSD,,[OpenBSD])
+    ;;
+  *-sgi-irix5*)
+    AC_DEFINE(IRIX,,[IRIX])
+    ;;
+  *-sgi-irix6*)
+    AC_DEFINE(IRIX,,[IRIX])
+    ;;
+  *-solaris*)
+    AC_DEFINE(SOLARIS,,[Solaris])
+dnl    CPPFLAGS="${CPPFLAGS} -DBSD_COMP"
+    LIBS="$LIBS -lsocket -lnsl -lrt"
+    AC_DEFINE(_POSIX_THREAD_SEMANTICS,,[_POSIX_THREAD_SEMANTICS])
+    AC_DEFINE(_POSIX_PTHREAD_SEMANTICS,,[_POSIX_PTHREAD_SEMANTICS])
+
+    AC_MSG_CHECKING(for sparc alignment)
+    if `echo $host | grep -i "^sparc" >/dev/null`
+    then
+      AC_DEFINE(WORDS_MUSTALIGN,,[Define if WORDS_MUSTALIGN: sparc])
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+    fi
+
+    ;;
+  *-sunos*)
+    AC_DEFINE(SUNOS,,[SunOS])
+    ;;
+  *-linux*)
+    AC_DEFINE(LINUX,,[Linux])
+dnl    AC_DEFINE(PCAP_TIMEOUT_IGNORED)  # libpcap doesn't even LOOK at
+
+    if test -f /etc/redhat-release
+    then
+        AC_DEFINE(REDHAT,,[RedHat Linux])
+        REDHAT=1
+    fi
+    if test -f /etc/fedora-release
+    then
+        AC_DEFINE(FEDORA,,[Fedora Linux])
+        FEDORA=1
+    fi
+    if test -f /etc/gentoo-release
+    then
+        AC_DEFINE(GENTOO,,[Gentoo Linux])
+        GENTOO=1
+    fi
+    if test -f /etc/os-release
+    then
+        if grep -i 'NAME="Ubuntu"' < /etc/os-release >/dev/null 2>&1
+        then
+            UBUNTU=1
+        fi
+    fi
+    ;;
+  *-hpux10*)
+    AC_DEFINE(HPUX,,[HPUX])
+    AC_DEFINE(WORDS_BIGENDIAN,,[WORDS_BIGENDIAN])
+    ;;
+  *-freebsd*)
+    AC_DEFINE(FREEBSD,,[FreeBSD])
+    CFLAGS="$CFLAGS -I/usr/local/include"
+    LIBFLAGS="$LIBFLAGS -L/usr/local/lib"
+    ;;
+  *-bsdi*)
+    AC_DEFINE(BSDI,,[BSDI])
+    ;;
+  *-aix*)
+    AC_DEFINE(AIX,,[AIX])
+    broken_types=yes
+    ;;
+  *-osf4*)
+    AC_DEFINE(OSF1,,[OSF1])
+    ;;
+  *-osf5.1*)
+    AC_DEFINE(OSF1,,[OSF1])
+    LIBS="$LIBS -lrt -lmld"
+    ;;
+  *-tru64*)
+    AC_DEFINE(OSF1,,[OSF1])
+    ;;
+# it is actually <platform>-apple-darwin1.2 or <platform>-apple-rhapsody5.x but lets stick with this for the moment
+  *-apple*)
+    AC_DEFINE(MACOS,,[MACOS])
+dnl    AC_DEFINE(BROKEN_SIOCGIFMTU)
+
+esac
+
+
+# 64-bit support
+AC_MSG_CHECKING([64bit])
+case "$host" in
+  dnl x86_64-redhat-linux-gnu
+  x86_64-*linux*)
+    LDFLAGS="$LDFLAGS -L/usr/lib64 -L/usr/local/lib64"
+    AC_MSG_RESULT([yes])
+    ;;
+  *)
+    LDFLAGS="$LDFLAGS -L/usr/lib -L/usr/local/lib"
+    AC_MSG_RESULT([no])
+    ;;
+esac
+
+AC_CHECK_SIZEOF([int *])
+AS_IF([test "$ac_cv_sizeof_int_p" -eq 8],
+  [
+    AC_DEFINE([OSBIT], 64, [Define to the size of a long in bits.])
+    AC_DEFINE([PTRTYPE], unsigned long, [Define size of pointer])
+  ],
+  [
+    AC_DEFINE([OSBIT], 32, [Define to the size of a long in bits.])
+    AC_DEFINE([PTRTYPE], unsigned int, [Define size of pointer])
+  ]
+)
+
+AM_CONDITIONAL(REDHAT,test $REDHAT -eq 1)
+AM_CONDITIONAL(FEDORA,test $FEDORA -eq 1)
+AM_CONDITIONAL(GENTOO,test $GENTOO -eq 1)
+
+dnl PIDDIR="/var/run"
+dnl AC_DEFINE_UNQUOTED(PIDDIR,["$PIDDIR"],[PID file location])
+dnl AC_SUBST(PIDDIR)
+
+dnl configs for p0f
+AC_DEFINE(MAXSIGS,[1024],[Maximum number of signatures allowed in the config file])
+AC_DEFINE(DEFAULT_QUERY_CACHE,[128], [increase this if your system gets lots of traffic and you get RESP_NOMATCH])
+AC_DEFINE(PACKET_BIG,[100],[Size limit for size wildcards - see p0fr.fp for more information])
+AC_DEFINE(MAXLINE,[1024],[Max signature line length])
+AC_DEFINE(MAXDIST,[40],[Maximum distance from a host to be taken seriously])
+AC_DEFINE(MAXOPT,[16],[Maximum number of TCP packet options])
+AC_DEFINE(SYN_DB,["p0f.fp"],[SYN DB])
+AC_DEFINE(SYNACK_DB,["p0fa.fp"],[SYACK DB])
+AC_DEFINE(RST_DB,["p0fr.fp"],[RST DB])
+AC_DEFINE(OPEN_DB,["p0fo.fp"],[OPEN DB])
+AC_DEFINE(PKT_DLEN,[16],[Packet dump - bytes per line; this is a sane setting])
+AC_DEFINE(PKT_MAXPAY,[45],[Display no more than PKT_MAXPAY bytes of payload in -X mode])
+AC_DEFINE(PACKET_SNAPLEN,[200],[Packet snap length])
+AC_DEFINE_UNQUOTED(CONFIG_DIR,"$myprefix/etc",[Paths and names to config files])
+
+
+dnl get glib config
+AC_CHECK_PROG(PKGCONFIG_PROG, [pkg-config], [yes], [no])
+if test x"$PKGCONFIG_PROG" != x"yes"
+then
+  AC_MSG_ERROR([Cannot find program pkg-config, maybe package pkgconfig is not installed])
+fi
+pkg_modules="gthread-2.0"
+PKG_CHECK_MODULES(PACKAGE, [$pkg_modules])
+AC_SUBST(PACKAGE_CFLAGS)
+AC_SUBST(PACKAGE_LIBS)
+
+CFLAGS="$CFLAGS $PACKAGE_CFLAGS"
+LIBS="$LIBS $PACKAGE_LIBS"
+
+
+dnl Checks for programs.
+AC_PROG_CC
+CC_VERSION=`$CC --version | head -1`
+AC_PROG_CPP
+AC_PROG_AWK
+
+AM_PROG_LEX
+if test "$LEX" = "flex"
+then
+  AC_DEFINE(FLEX,,[FLEX])
+else
+  AC_MSG_ERROR([Cannot find program flex])
+fi
+echo "LEX=$LEX"
+AC_PROG_YACC
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AC_DISABLE_STATIC
+
+dnl AC_CONFIG_MACRO_DIR([libltdl/m4])
+dnl LT_CONFIG_LTDL_DIR([libltdl])
+dnl LT_INIT
+dnl LTDL_INIT
+dnl AC_CONFIG_AUX_DIR([libltdl/config])
+dnl AC_LIBTOOL_DLOPEN
+dnl AC_LIBLTDL_CONVENIENCE
+dnl AM_PROG_LIBTOOL
+dnl AC_PROG_LIBTOOL
+dnl AC_SUBST(LIBTOOL_DEPS)
+dnl AC_SUBST([LIBTOOL_DEPS])
+
+AC_PROG_MAKE_SET
+dnl AC_PATH_PROG(RBIN,R,"ERROR_NOTFOUND",$PATH:/usr/local/bin)
+dnl cat > pastmon-php/rbin.inc <<EOF
+dnl <?
+dnl   \$RBIN = "$RBIN";
+dnl   /*  only works ok PHP5
+dnl   if (!posix_access(\$RBIN, POSIX_F_OK | POSIX_R_OK | POSIX_X_OK)) {
+dnl     foreach (explode(":",\$_SERVER[['PATH']]) as \$path) {
+dnl       \$RBIN = \$path . "/R";
+dnl       if (posix_access(\$RBIN, POSIX_F_OK | POSIX_R_OK | POSIX_X_OK)) {
+dnl         break;
+dnl       }
+dnl       \$RBIN = "ERROR_NOTFOUND";
+dnl     }
+dnl   }
+dnl   */
+dnl ?>
+dnl EOF
+
+dnl Checks for libraries.
+
+dnl Option to link against dmalloc libs for memory debugging
+AC_MSG_CHECKING([whether I am to link with dmalloc (debugging)])
+AC_ARG_WITH(dmalloc, AS_HELP_STRING([--with-dmalloc],[Forces link against dmalloc libraries for memory debugging]), DMALLOCLIBS="-ldmallocth", DMALLOCLIBS="")
+if test "$DMALLOCLIBS" != ""
+then
+  AC_MSG_RESULT(yes)
+  LIBS="$DMALLOCLIBS $LIBS"
+  AC_CHECK_LIB(dmallocth, main, HAVE_LIBDMALLOC=1, HAVE_LIBDMALLOC=0)
+  if test $HAVE_LIBDMALLOC -eq 1
+  then
+    AC_CHECK_LIB(dmallocth, main)
+    echo "dmalloc library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested dmalloc (--with-dmalloc) library, aborting"
+    exit 99
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+AC_ARG_WITH(pcap-lib, AS_HELP_STRING([--with-pcap-lib=libdir],[Specify pcap library directory for pcap.h]), PCAPLIB=$withval, PCAPLIB="")
+echo "PCAPLIB=$PCAPLIB"
+if test "$PCAPLIB" != ""
+then
+  LDFLAGS="$LDFLAGS -L$PCAPLIB"
+fi
+AC_CHECK_LIB(pcap,main,HAVE_LIBPCAP=1,HAVE_LIBPCAP=0)
+if test $HAVE_LIBPCAP -eq 1
+then
+  AC_CHECK_LIB(pcap,main)
+  echo "PCAP library located OK"
+else
+  echo "ERROR: Configure was not able to locate the PCAP library (libpcap)."
+  echo "       The libpcap library must be installed for pastmon to build."
+  echo "       If you do have libpcap installed then you need to inform the"
+  echo "       configure script with the --with-pcap-lib=libdir where the"
+  echo "       libpcap library resides."
+  exit 99
+fi
+echo "LIBS=$LIBS"
+echo "LDFLAGS=$LDFLAGS"
+AC_CHECK_LIB(dl,main)
+AC_CHECK_LIB(fl,main)
+AC_CHECK_LIB(l,main)
+AC_CHECK_LIB(m,main)
+AC_CHECK_LIB(malloc,main)
+AC_CHECK_LIB(pthread,main)
+
+HAVE_LIBDBI=0
+AC_CHECK_LIB(dbi,main,HAVE_LIBDBI=1,HAVE_LIBDBI=0)
+AC_CHECK_LIB(dbi,main)
+if test x$HAVE_LIBDBI != x1
+then
+  AC_MSG_WARN([Did not locate libdbi, output_DBI plugin will not be built.])
+fi
+AC_CHECK_LIB(dbi,dbi_conn_queryf,AC_DEFINE_UNQUOTED(HAVE_DBI_CONN_QUERYF,[1],[dbi_conn_queryf]),[])
+
+AC_CHECK_LIB(dbi,dbi_initialize_r,AC_DEFINE_UNQUOTED(HAVE_DBI_INITIALIZE_R,[1],[dbi_initialize_r]),[])
+
+
+HAVE_LIBPCRE=0
+AC_ARG_WITH(build-pcre, AS_HELP_STRING([--with-build-pcre],[Force build of shipped pcre (over installed pcre)]), BUILD_PCRE=1, BUILD_PCRE=)
+if test x$BUILD_PCRE != x1; then
+  AC_CHECK_LIB(pcre,main,HAVE_LIBPCRE=1,HAVE_LIBPCRE=0)
+  AC_CHECK_LIB(pcre,main)
+fi
+HAVE_SUBDIR_PCRE=0
+if test x$HAVE_LIBPCRE != x1
+then
+  dnl is there a pcre/ subdir to build instead
+  AC_MSG_CHECKING([Is there a pcre/ directory to build])
+        if test -d `pwd`/pcre; then
+                AC_CONFIG_SUBDIRS(pcre)
+                AC_MSG_RESULT(yes)
+    HAVE_SUBDIR_PCRE=1
+    BUILD_PCRE=1
+    CPPFLAGS="$CPPFLAGS -I`pwd`"
+    LDFLAGS="$LDFLAGS -L`pwd`/pcre"
+    LIBS="$LIBS -lpcre"
+        else
+    AC_MSG_ERROR([No pcre/ subdirectory when --with-build-pcre specified])
+        fi
+fi
+
+dnl Option to link against mpatrol libs for memory debugging
+AC_MSG_CHECKING([whether I am to link with mpatrol (debugging)])
+AC_ARG_WITH(mpatrol, AS_HELP_STRING([--with-mpatrol],[Forces link against mpatrol libraries for memory debugging]), MPATROLLIBS="-lmpatrol -lbfd -liberty", MPATROLLIBS="")
+AC_SUBST(MPATROLLIBS)
+if test "$MPATROLLIBS" != ""
+then
+  AC_MSG_RESULT(yes)
+  AC_CHECK_LIB(mpatrol, main, HAVE_LIBMPATROL=1, HAVE_LIBMPATROL=0, $MPATROLLIBS)
+  if test $HAVE_LIBMPATROL -eq 1
+  then
+    AC_CHECK_LIB(mpatrol, main)
+    echo "mpatrol library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested mpatrol (--with-mpatrol) library, aborting"
+    exit 99
+  fi
+  AC_CHECK_LIB(bfd, main, HAVE_LIBBFD=1, HAVE_LIBBFD=0)
+  if test $HAVE_LIBBFD -eq 1
+  then
+    AC_CHECK_LIB(bfd, main)
+    echo "bfd library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested bfd (--with-mpatrol) library, aborting"
+    exit 99
+  fi
+  AC_CHECK_LIB(iberty, main, HAVE_LIBERTY=1, HAVE_LIBERTY=0)
+  if test $HAVE_LIBERTY -eq 1
+  then
+    AC_CHECK_LIB(iberty, main)
+    echo "liberty library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested liberty (--with-mpatrol) library, aborting"
+    exit 99
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl Option to link against efence libs for memory debugging
+AC_MSG_CHECKING([whether I am to link with efence (debugging)])
+AC_ARG_WITH(efence, AS_HELP_STRING([--with-efence],[Forces link against efence libraries for memory debugging]), EFENCELIBS="-lefence", EFENCELIBS="")
+if test "$EFENCELIBS" != ""
+then
+  AC_MSG_RESULT(yes)
+  AC_CHECK_LIB(efence, main, HAVE_LIBEFENCE=1, HAVE_LIBEFENCE=0)
+  if test $HAVE_LIBEFENCE -eq 1
+  then
+    AC_CHECK_LIB(efence, main)
+    echo "efence library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested efence (--with-efence) library, aborting"
+    exit 99
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl Option to link against njamd libs for memory debugging
+AC_MSG_CHECKING([whether I am to link with njamd (debugging)])
+AC_ARG_WITH(njamd, AS_HELP_STRING([--with-njamd],[Forces link against njamd libraries for memory debugging]), NJAMDLIBS="-lnjamd", NJAMDLIBS="")
+if test "$NJAMDLIBS" != ""
+then
+  AC_MSG_RESULT(yes)
+  AC_CHECK_LIB(njamd, main, HAVE_LIBNJAMD=1, HAVE_LIBNJAMD=0)
+  if test $HAVE_LIBNJAMD -eq 1
+  then
+    AC_CHECK_LIB(njamd, main)
+    echo "njamd library located ok"
+  else
+    echo "ERROR: Configure was not able to locate the requested njamd (--with-njamd) library, aborting"
+    exit 99
+  fi
+else
+  AC_MSG_RESULT(no)
+fi
+
+
+AC_CHECK_FUNC(pcap_dump_flush, AC_DEFINE_UNQUOTED(HAVE_PCAP_DUMP_FLUSH, [1], [found func pcap_dump_flush()]))
+AC_CHECK_FUNC(g_strsplit_set, AC_DEFINE_UNQUOTED(HAVE_G_STRSPLIT_SET, [1], [found func g_strsplit_set()]))
+
+
+dnl Option to compile with -pg for generation of profiling data that can be analysed using gprof
+AC_MSG_CHECKING([whether I am to link with gprof (debugging)])
+AC_ARG_WITH(pg, AS_HELP_STRING([--with-pg],[Generate runtime profile data for use with gprof]), PGOPT="-pg", PGOPT="")
+if test "$PGOPT" != ""
+then
+  AC_MSG_RESULT(yes)
+  LDFLAGS="$PGOPT $LDFLAGS"
+  CFLAGS=`echo $CFLAGS | sed 's/-g[ ]*//' | sed 's/-O.[ ]*//'`
+  CFLAGS="$PGOPT $CFLAGS"
+  CFLAGS="-g -O0 $CFLAGS"
+else
+  AC_MSG_RESULT(no)
+fi
+
+dnl Checks for header files.
+AC_ARG_WITH(pcap-include, AS_HELP_STRING([--with-pcap-include=includedir],[Specify pcap include directory for pcap.h]), PCAPINCLUDE=$withval, PCAPINCLUDE=/usr/include/pcap)
+dnl --- 11/27/02 Removed duplicate search path causing gcc to error on each compile test here.
+dnl CPPFLAGS="$CPPFLAGS -I/usr/local/include -I$PCAPINCLUDE"
+CPPFLAGS="$CPPFLAGS -I$PCAPINCLUDE"
+AC_HEADER_STDC
+AC_CHECK_HEADERS([fcntl.h malloc.h strings.h syslog.h unistd.h pcap.h time.h string.h pthread.h sys/prctl.h math.h execinfo.h sys/inotify.h])
+AC_CHECK_HEADERS(pcap-namedb.h, [], [],
+[#if HAVE_PCAP_H
+# include <pcap.h>
+# endif
+])
+
+echo "BUILD_PCRE=$BUILD_PCRE, HAVE_SUBDIR_PCRE=$HAVE_SUBDIR_PCRE"
+
+if test x$BUILD_PCRE = x1 -a x$HAVE_SUBDIR_PCRE = x1
+then
+  HAVE_PCRE_PCRE_H=1
+  AC_SUBST(HAVE_PCRE_PCRE_H)
+else
+  AC_CHECK_HEADERS(pcre/pcre.h, HAVE_PCRE_PCRE_H=1,HAVE_PCRE_PCRE_H=0)
+  if test "x$HAVE_PCRE_PCRE_H" != "x1"
+  then
+    AC_CHECK_HEADERS(pcre.h, HAVE_PCRE_H=1,HAVE_PCRE_H=0)
+  fi
+fi
+if test x$HAVE_PCRE_PCRE_H != x1 -a x$HAVE_PCRE_H != x1; then
+  echo "ERROR: configure was not able to locate the pcre.h include file."
+  echo "       If you are building with a pre-shipped version of pcre then "
+  echo "       please make sure the development include files are installed, "
+  echo "       with RedHat Linux this involves installing the pcre-devel RPM."
+  exit 99
+fi
+AC_DEFINE_UNQUOTED(HAVE_PCRE_PCRE_H, $HAVE_PCRE_PCRE_H, [Have found pcre.h])
+
+AC_CHECK_HEADER(pcap.h,HAVE_PCAP_H=1,HAVE_PCAP_H=0)
+AC_CHECK_HEADER(pcap_namedb.h,HAVE_PCAP_NAMEDB_H=1,HAVE_PCAP_NAMEDB_H=0)
+if test $HAVE_PCAP_H -eq 1 && test $HAVE_PCAP_NAMEDB_H -eq 1
+then
+  echo "pcap.h and pcap_namedb.h header files located OK"
+else
+  echo "ERROR: Configure was not able to locate the PCAP include files (pcap.h & pcap_namedb.h)."
+  echo "       The libpcap library must be installed for pastmon to build."
+  echo "       If you do have libpcap installed then you need to inform the"
+  echo "       configure script with the --with-pcap-include=includedir where the"
+  echo "       libpcap header files reside."
+  exit 99
+fi
+AC_CHECK_HEADER(dbi/dbi.h,HAVE_DBI_H=1,HAVE_DBI_H=0)
+if test x$HAVE_DBI_H != x1
+then
+  AC_MSG_WARN([Did not locate libdbi headers, output_DBI plugin will not be built.])
+fi
+
+if test x$HAVE_LIBDBI != x1 -o x$HAVE_DBI_H != x1
+then
+  AM_CONDITIONAL(DBI_F, false)
+else
+  AM_CONDITIONAL(DBI_F, true)
+fi
+
+dnl check for setns (IP Namespaces)
+AC_CHECK_FUNC(setns, AC_DEFINE_UNQUOTED(HAVE_SETNS, [1], [found func setns()]))
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_HEADER_TIME
+AC_STRUCT_TM
+AC_TYPE_UID_T
+AC_C_INLINE
+AC_TYPE_SIZE_T
+AC_SUBST(INCLTDL)
+AC_SUBST(LIBLTDL)
+
+dnl bpf_timeval is deprecated i think
+AC_EGREP_HEADER(bpf_timeval, pcap.h, pcaptimeval=bpf_timeval, pcaptimeval=timeval)
+AC_DEFINE_UNQUOTED(PCAPTIMEVAL, $pcaptimeval, [pcap timeval type])
+
+if test "$broken_types" = "yes" ; then
+  AC_CHECK_TYPE(u_int8_t, unsigned char)
+  AC_CHECK_TYPE(int8_t, char)
+  AC_CHECK_TYPE(u_int16_t, unsigned short)
+  AC_CHECK_TYPE(int16_t, short)
+  AC_CHECK_TYPE(u_int32_t, unsigned long int)
+  AC_CHECK_TYPE(int32_t, long int)
+else
+  AC_CHECK_TYPE(u_int8_t, uint8_t)
+  AC_CHECK_TYPE(int8_t, int8_t)
+  AC_CHECK_TYPE(u_int16_t, uint16_t)
+  AC_CHECK_TYPE(int16_t, int16_t)
+  AC_CHECK_TYPE(u_int32_t, uint32_t)
+  AC_CHECK_TYPE(int32_t, int32_t)
+  AC_CHECK_TYPE(u_int64_t, uint64_t)
+  AC_CHECK_TYPE(int64_t, int64_t)
+fi
+
+dnl enable all compiler warnings
+AC_ARG_ENABLE(compile-Wall, AS_HELP_STRING([--enable-compile-Wall],[Enable compiler option -Wall]), COMPWALL=-Wall, COMPWALL=)
+CFLAGS="$CFLAGS $COMPWALL"
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_TYPE_SIGNAL
+AC_FUNC_VPRINTF
+dnl AC_CHECK_FUNCS(dbi_conn_queryf)
+AC_CHECK_FUNCS(gettimeofday strdup strerror)
+
+RPM_P_VER=`echo $VERSION | awk '{ print $1 }' FS="-"`
+RPM_P_REL=`echo $VERSION | awk '{ print $2 }' FS="-"`
+AC_SUBST(RPM_P_VER)
+AC_SUBST(RPM_P_REL)
+
+#MYFILES=""
+AC_CONFIG_FILES([
+Makefile
+include/Makefile
+include/p0f/Makefile
+pastmon/Makefile
+scripts/Makefile
+scripts/post-install
+scripts/pastmon_startpastmon
+scripts/pastmon_startpastmonsql
+scripts/pastmon_startpastmonsql_deprecated
+scripts/pastmon_starter.sh
+scripts/pastmon_input_sql_summary.pl
+scripts/pastmon_summarise_level_2.pl
+scripts/lib/Makefile
+scripts/lib/pastmon.pm
+plugins/Makefile
+etc/Makefile
+etc/example_configs/Makefile
+etc/Gentoo/Makefile
+etc/OpenStack/Makefile
+etc/nginx/Makefile
+pastmon-php/Makefile
+plugins/generic/Makefile
+plugins/icmp/Makefile
+plugins/tcpsynack/Makefile
+plugins/dns/Makefile
+postgresql_admin/Makefile
+R_Examples/Makefile
+output_plugins/Makefile
+output_plugins/DBI/Makefile
+Documentation/Makefile
+Documentation/install_guide/Makefile
+])
+#     scripts/pastmon_summarise_level_1.pl
+AC_OUTPUT
+
+dnl create the RPM Spec file:
+echo
+echo "Creating RPM Spec file, version=$RPM_P_VER, release=$RPM_P_REL, prefix=$prefix"
+cat <<EOF >pastmon.spec
+Summary: Passive application response time monitor
+Name: pastmon
+Version: $RPM_P_VER
+Release: $RPM_P_REL
+License: GPL - GNU General Public License
+Group: Network/Monitoring
+Source0: http://prdownloads.sourceforge.net/pastmon/pastmon-$VERSION.tar.gz
+Url: http://www.pastmon.org/
+Packager: Graham Lee Bevan <graham.bevan@ntlworld.com>
+Vendor: pastmon.org
+Distribution: PasTmon
+AutoReqProv: no
+requires: pcre libpcap postgresql-libs postgresql libdbi
+BuildRoot: /var/tmp/%{name}-buildroot
+
+%define __check_files %{nil}
+
+%description
+Pastmon - The passive application response time monitor.
+
+PasTmon is a passive network traffic analyser that can measure user
+transaction response times of web, ftp, dns, irc, pop, mail and postgresql
+database servers.
+
+Create your own signatures to measure application protocols of your choice.
+
+%prep
+%setup -n pastmon-$VERSION
+
+%build
+./configure
+#make CFLAGS="\$RPM_OPT_FLAGS"
+make
+
+%install
+make install DESTDIR=\$RPM_BUILD_ROOT
+
+%post
+test ! -f $prefix/etc/pastmon.conf && cp $prefix/etc/pastmon-example.conf $prefix/etc/pastmon.conf
+
+#cat > $prefix/share/std.reports/config.pm <<EOF3
+
+# Generated by the rpm post install
+#
+# config.pm, site config library for std.reports
+package config;
+
+\\\$VERSION = "$VERSION";
+\\\#$RBIN = "\$RBIN";
+\\\$PREFIX = "$prefix";
+#\\\$STDREPORTSDIR = "$prefix/share/std.reports";
+#\\\$OUTDIR = "$prefix/share/std.reports/pastmon_standard_reports";
+EOF3
+
+#if test ! -f $prefix/share/std.reports/pastmon_standard_report.conf
+#then
+#  cp $prefix/share/std.reports/pastmon_standard_report.conf.example $prefix/share/std.reports/pastmon_standard_report.conf
+#fi
+
+#$prefix/bin/create_pastmon_user.sh
+
+if test -f /etc/init.d/pastmon
+then
+  mv -f /etc/init.d/pastmon /etc/init.d/pastmon.rpmsave
+fi
+cp -f $prefix/etc/rc_pastmon.redhat /etc/init.d/pastmon
+chmod 555 /etc/init.d/pastmon
+echo "To start pastmon on reboot run command:"
+echo "  /sbin/chkconfig --add pastmon"
+
+echo
+$prefix/bin/post-install
+
+%files
+EOF
+
+#if test "$LEX" != "flex"
+#then
+#  echo "*** WARNING: Using $LEX lexical analyser, nested configuration"
+#  echo "***          file includes may not be supported. The flex lexical"
+#  echo "***          analyser is the only one fully supported by PasTmon."
+#  echo "***          You will have to modify the pastmon.conf file to"
+#  echo "***          replace the includes with the rules and signatures."
+#  echo "***          This will only affect you if you edit a .l file."
+#fi
+
+echo "*************************************************************************"
+
+cat > pastmon-php/version.inc <<EOF
+<?php
+  \$VERSION = "$VERSION";
+?>
+EOF
+
+#cat > std.reports/pastmon_standard_reports/version.inc <<EOF
+#<?
+#  \$VERSION = "$VERSION";
+#?>
+#EOF
+
+#cat > std.reports/config.pm <<EOF
+## Generated by the configure script
+##
+## config.pm, site config library for std.reports
+#package config;
+#
+#\$VERSION = "$VERSION";
+#\#$RBIN = "$RBIN";
+#\$PREFIX = "$prefix";
+#\$STDREPORTSDIR = "@@stdreportsdir@@";
+#\$OUTDIR = "@@stdreports2dir@@";
+#
+#1;
+#EOF
+
+dnl create a TeX version command in Documentation
+cat >Documentation/version.tex <<EOF
+% autogenerated from configure
+\\newcommand{\\Version}{$VERSION}
+EOF
+
+echo "Host architecture: $host"
+echo "CC...............: $CC - $CC_VERSION"
+
+lab="CPPFLAGS.........:"
+for i in $CPPFLAGS
+do
+  echo "$lab $i"
+  lab="                 :"
+done
+
+#echo "CFLAGS...........: $CFLAGS"
+lab="CFLAGS...........:"
+for i in $CFLAGS
+do
+  echo "$lab $i"
+  lab="                 :"
+done
+
+#echo "LDFLAGS..........: $LDFLAGS"
+lab="LDFLAGS..........:"
+for i in $LDFLAGS
+do
+  echo "$lab $i"
+  lab="                 :"
+done
+
+#echo "LIBS.............: $LIBS"
+lab="LIBS.............:"
+for i in $LIBS
+do
+  echo "$lab $i"
+  lab="                 :"
+done
+#if test "$RBIN" = "ERROR_NOTFOUND"
+#then
+#  echo "Location of R....: not found, std.reports (now deprecated) will be unusable"
+#else
+#  echo "Location of R....: $RBIN"
+#fi
+
+
+if test x$HAVE_LIBDBI = x1 -a x$HAVE_DBI_H = x1
+then
+  DBIMSG="Yes - db support will be listed during install"
+else
+  DBIMSG="No - WARNING: output_DBI plugin will NOT be built"
+fi
+echo "Dojo kit.........: $DOJOKIT"
+echo "libdbi...........: $DBIMSG"
+echo "Install prefix...: $prefix"
+echo "PasTmon version..: $VERSION"
+
+if test x$BUILDSERVER = x1
+then
+    echo "Build Server.....: Yes"
+else
+    echo "Build Server.....: No"
+fi
+
+if test x$COMPDEBUG = x1
+then
+  echo "Debug Enabled....: Yes"
+fi
+
+if test x$COMPRTL = x1
+then
+  echo "RTL Enabled......: Yes"
+fi
+echo "*********************************************************************"
+echo "* configure complete, now type 'make' and then 'sudo make install'. *"
+echo "*********************************************************************"
+
