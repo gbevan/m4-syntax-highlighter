@@ -2,7 +2,7 @@
   "name": "m4-syntax-highlighter",
   "title": "M4 Macro Syntax Highlighter",
   "description": "Simple Syntax highlighting for M4 Macro files (e.g. Autoconf). To improve editting of configure.ac files primarily.",
-  "homepage": "",
+  "homepage": "https://github.com/gbevan/m4-syntax-highlighter",
   "keywords": [
     "m4",
     "autoconf",
@@ -13,7 +13,7 @@
   "author": {
     "name": "Graham Lee Bevan",
     "email": "graham.bevan@ntlworld.com",
-    "url": ""
+    "url": "https://github.com/gbevan/m4-syntax-highlighter"
   },
   "licenses": [{
     "type": "Apache 2.0",
